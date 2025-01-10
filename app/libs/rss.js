@@ -23,8 +23,15 @@ const _getRssContent = async function (rssUrl, suffix = true) {
     let url = rssUrl;
     const isPig = rssUrl.includes('https://piggo.me/');
     const isKamept = rssUrl.includes('https://kamept.com/');
+    let placeholder;
+    if (isKamept) {
+      placeholder = 'placeholder';
+    } else {
+      placeholder = '____';
+    }
+
     if (suffix && !isPig && !isKamept) {
-      url += (rssUrl.indexOf('?') === -1 ? '?' : '&') + '____=' + Math.random();
+      url += (rssUrl.indexOf('?') === -1 ? '?' : '&') + `${placeholder}=` + Math.random();
     }
     let res;
     if (rssUrl.includes('https://pt.soulvoice.club/') && global.runningSite.SoulVoice) {
@@ -303,7 +310,7 @@ const _getTorrentsTorrentDB = async function (rssUrl) {
   return torrents;
 };
 
-const _getTorrentsLuminance = async function (rssUrl) {
+const _getTorrentsEmpornium = async function (rssUrl) {
   const rss = await parseXml(await _getRssContent(rssUrl));
   const torrents = [];
   const items = rss.rss.channel[0].item;
@@ -321,11 +328,26 @@ const _getTorrentsLuminance = async function (rssUrl) {
     torrent.link = link;
     torrent.id = link.substring(link.indexOf('?id=') + 4);
     torrent.url = items[i].enclosure[0].$.url;
-    torrent.hash = items[i].torrent[0].infoHash[0];
-    torrent.size = items[i].torrent[0].contentLength[0];
+    const cache = await redis.get(`vertex:hash:${torrent.url}`);
+    if (cache) {
+      const _torrent = JSON.parse(cache);
+      torrent.hash = _torrent.hash;
+      torrent.size = _torrent.size;
+    } else {
+      try {
+        const { hash, size } = await exports.getTorrentNameByBencode(torrent.url);
+        torrent.hash = hash;
+        torrent.size = size;
+        await redis.set(`vertex:hash:${torrent.url}`, JSON.stringify(torrent));
+      } catch (e) {
+        await redis.set(`vertex:hash:${torrent.url}`, JSON.stringify({ hash: 'emp' + moment().unix() + 'emp', size: 0 }));
+        throw e;
+      }
+    }
     torrent.pubTime = moment(items[i].pubDate[0]).unix();
     torrents.push(torrent);
   }
+
   return torrents;
 };
 
@@ -591,7 +613,7 @@ const _getTorrentsLearnFlakes = async function (rssUrl) {
   return torrents;
 };
 
-const _getTorrentsAvistaZ = async function (rssUrl) {
+const _getTorrentsExoticaZ = async function (rssUrl) {
   const rss = await parseXml(await _getRssContent(rssUrl));
   const torrents = [];
   const items = rss.rss.channel[0].item;
@@ -818,10 +840,7 @@ const _getTorrentsWrapper = {
   'kimoji.club': _getTorrentsKimoji,
   'torrentdb.net': _getTorrentsTorrentDB,
   'uhdbits.org': _getTorrentsGazelle,
-  'www.empornium.is': _getTorrentsLuminance,
-  'www.empornium.sx': _getTorrentsLuminance,
-  'www.pixelcove.me': _getTorrentsLuminance,
-  'www.cathode-ray.tube': _getTorrentsLuminance,
+  'www.empornium.is': _getTorrentsEmpornium,
   'www.skyey2.com': _getTorrentsSkyeySnow,
   'hdbits.org': _getTorrentsHDBits,
   'beyond-hd.me': _getTorrentsBeyondHD,
@@ -831,10 +850,10 @@ const _getTorrentsWrapper = {
   'iptorrents.com': _getTorrentsIPTorrents,
   'mikanani.me': _getTorrentsMikanProject,
   'learnflakes.net': _getTorrentsLearnFlakes,
-  'exoticaz.to': _getTorrentsAvistaZ,
-  'avistaz.to': _getTorrentsAvistaZ,
-  'cinemaz.to': _getTorrentsAvistaZ,
-  'privatehd.to': _getTorrentsAvistaZ,
+  'exoticaz.to': _getTorrentsExoticaZ,
+  'avistaz.to': _getTorrentsExoticaZ,
+  'cinemaz.to': _getTorrentsExoticaZ,
+  'privatehd.to': _getTorrentsExoticaZ,
   'rss.torrentleech.org': _getTorrentsTorrentLeech,
   'rss24h.torrentleech.org': _getTorrentsTorrentLeech,
   'fsm.name': _getTorrentsFSM,
