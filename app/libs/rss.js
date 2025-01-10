@@ -30,7 +30,7 @@ const _getRssContent = async function (rssUrl, suffix = true) {
       placeholder = '____';
     }
 
-    if (suffix && !isPig && !isKamept) {
+    if (suffix && !isPig) {
       url += (rssUrl.indexOf('?') === -1 ? '?' : '&') + `${placeholder}=` + Math.random();
     }
     let res;
